@@ -23,7 +23,7 @@ export default function LoginPage() {
 
     localStorage.setItem('token', data.access_token);
 
-    router.push('/');
+    router.push('/test');
   } catch {
     setError('Email ou senha inválidos');
   }
