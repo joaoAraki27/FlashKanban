@@ -41,8 +41,6 @@ yarn-error.log*
 next-env.d.ts
 
 # arquivos em desenvolvimento (nao enviar ainda)
-app/boards/boards.tsx
 app/components/Modals/
-app/data/
 app/helpers/
 app/types/
