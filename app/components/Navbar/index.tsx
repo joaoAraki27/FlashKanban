@@ -3,11 +3,8 @@
 import { useEffect, useState } from 'react';
 import {
 	ChevronDown,
-	NotificationsOutline,
 	PersonCircle,
 	SearchOutline,
-	SettingsOutline,
-	ShareSocialOutline,
 } from "react-ionicons";
 
 const Navbar = () => {
@@ -15,6 +12,7 @@ const Navbar = () => {
 
 	useEffect(() => {
 		const stored = localStorage.getItem('username');
+		// eslint-disable-next-line react-hooks/set-state-in-effect
 		if (stored) setUsername(stored);
 	}, []);
 

@@ -12,6 +12,7 @@ export default function BoardsPage() {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) router.push('/login');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

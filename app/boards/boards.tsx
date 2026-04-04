@@ -2,7 +2,7 @@
 'use client';
 
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Board } from "../data/board";
 import { Columns } from "../types";
 import { onDragEnd } from "../helpers/onDragEnd";
@@ -10,10 +10,43 @@ import { AddOutline } from "react-ionicons";
 import AddModal from "../components/Modals/AddModal";
 import Task from "../components/Task";
 
+const API_BASE = "https://joaocunha.flashnetbrasil.com.br/api/v1";
+
 const Home = () => {
 	const [columns, setColumns] = useState<Columns>(Board);
 	const [modalOpen, setModalOpen] = useState(false);
 	const [selectedColumn, setSelectedColumn] = useState("");
+
+	const getToken = () => localStorage.getItem("token") || "";
+
+	useEffect(() => {
+		// Log dos boards
+		fetch(`${API_BASE}/boards`, {
+			headers: { Authorization: `Bearer ${getToken()}` },
+		})
+			.then((res) => res.json())
+			.then((data) => {
+				console.log("=== GET /boards ===", data);
+
+				if (data.items && data.items.length > 0) {
+					const boardId = data.items[0].id;
+					// Log do detalhe do board com colunas e cards
+					fetch(`${API_BASE}/boards/${boardId}`, {
+						headers: { Authorization: `Bearer ${getToken()}` },
+					})
+						.then((res) => res.json())
+						.then((detail) => {
+							console.log("=== GET /boards/:id (detalhe) ===", detail);
+							console.log("=== Colunas ===", detail.columns);
+							detail.columns?.forEach((col: any) => {
+								console.log(`=== Coluna: ${col.name} — ${col.cards?.length || 0} cards ===`, col.cards);
+							});
+						})
+						.catch((err) => console.error("Erro ao buscar detalhe:", err));
+				}
+			})
+			.catch((err) => console.error("Erro ao buscar boards:", err));
+	}, []);
 
 	const openModal = (columnId: any) => {
 		setSelectedColumn(columnId);

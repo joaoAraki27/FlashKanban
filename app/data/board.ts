@@ -14,8 +14,8 @@ export const Board: Columns = {
       },
     ],
   },
-  todo: {
-    name: "A Fazer",
+  emAndamento: {
+    name: "Em Andamento",
     items: [
       {
         id: 2,
@@ -27,8 +27,8 @@ export const Board: Columns = {
       },
     ],
   },
-  inProgress: {
-    name: "Em Progresso",
+  emRevisao: {
+    name: "Em Revisão",
     items: [
       {
         id: 3,
@@ -40,7 +40,7 @@ export const Board: Columns = {
       },
     ],
   },
-  done: {
+  concluido: {
     name: "Concluído",
     items: [],
   },
