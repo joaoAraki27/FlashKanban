@@ -3,125 +3,166 @@
 
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { useEffect, useState } from "react";
-import { Board } from "../data/board";
 import { Columns } from "../types";
-import { onDragEnd } from "../helpers/onDragEnd";
-import { AddOutline } from "react-ionicons";
-import AddModal from "../components/Modals/AddModal";
+import { api } from "../lib/api";
+import { toast } from "../components/Toast";
+import { AddOutline, TimeOutline } from "react-ionicons";
+import AddModal, { TaskData } from "../components/Modals/AddModal";
+import MoveModal from "../components/Modals/MoveModal";
+import CardDetailModal from "../components/Modals/CardDetailModal";
+import SideBarHistory from "../components/SideBarHistory";
 import Task from "../components/Task";
 
-const API_BASE = "https://joaocunha.flashnetbrasil.com.br/api/v1";
+const Home = ({ boardId }: { boardId: string }) => {
+	const [columns, setColumns] = useState<Columns>({});
+	const [permission, setPermission] = useState("");
+	const [loading, setLoading] = useState(true);
+	const [addCol, setAddCol] = useState<string | null>(null);
+	const [move, setMove] = useState<{ cardId: number; from: string; to: string; pos: number } | null>(null);
+	const [detailId, setDetailId] = useState<number | null>(null);
+	const [historyOpen, setHistoryOpen] = useState(false);
 
-const Home = () => {
-	const [columns, setColumns] = useState<Columns>(Board);
-	const [modalOpen, setModalOpen] = useState(false);
-	const [selectedColumn, setSelectedColumn] = useState("");
-
-	const getToken = () => localStorage.getItem("token") || "";
+	const viewer = permission === "viewer";
 
 	useEffect(() => {
-		// Log dos boards
-		fetch(`${API_BASE}/boards`, {
-			headers: { Authorization: `Bearer ${getToken()}` },
-		})
-			.then((res) => res.json())
-			.then((data) => {
-				console.log("=== GET /boards ===", data);
-
-				if (data.items && data.items.length > 0) {
-					const boardId = data.items[0].id;
-					// Log do detalhe do board com colunas e cards
-					fetch(`${API_BASE}/boards/${boardId}`, {
-						headers: { Authorization: `Bearer ${getToken()}` },
-					})
-						.then((res) => res.json())
-						.then((detail) => {
-							console.log("=== GET /boards/:id (detalhe) ===", detail);
-							console.log("=== Colunas ===", detail.columns);
-							detail.columns?.forEach((col: any) => {
-								console.log(`=== Coluna: ${col.name} — ${col.cards?.length || 0} cards ===`, col.cards);
-							});
-						})
-						.catch((err) => console.error("Erro ao buscar detalhe:", err));
-				}
+		api(`/boards/${boardId}`)
+			.then((r) => r.json())
+			.then((d) => {
+				if (!d?.columns) return;
+				setPermission(d.my_permission || "");
+				const cols: Columns = {};
+				d.columns.forEach((col: any) => {
+					cols[col.id] = { id: col.id, name: col.name, items: col.cards || [], wip_limit: col.wip_limit };
+				});
+				setColumns(cols);
 			})
-			.catch((err) => console.error("Erro ao buscar boards:", err));
-	}, []);
+			.finally(() => setLoading(false));
+	}, [boardId]);
 
-	const openModal = (columnId: any) => {
-		setSelectedColumn(columnId);
-		setModalOpen(true);
+	const onDragEnd = (result: any) => {
+		if (viewer || !result.destination) return;
+		const { source, destination, draggableId } = result;
+		if (source.droppableId === destination.droppableId) return;
+
+		setMove({
+			cardId: Number(draggableId),
+			from: source.droppableId,
+			to: destination.droppableId,
+			pos: destination.index,
+		});
 	};
 
-	const closeModal = () => {
-		setModalOpen(false);
+	const confirmMove = async (observation: string) => {
+		if (!move) return;
+
+		const res = await api(`/cards/${move.cardId}/move`, {
+			method: "POST",
+			body: JSON.stringify({ target_column_id: move.to, position: move.pos, observation }),
+		});
+
+		if (!res.ok) {
+			const e = await res.json().catch(() => null);
+			toast(e?.error?.message || "Erro ao mover card");
+			setMove(null);
+			return;
+		}
+
+		setColumns((prev) => {
+			const card = prev[move.from].items.find((t) => t.id === move.cardId)!;
+			const toItems = [...prev[move.to].items];
+			toItems.splice(move.pos, 0, card);
+			return {
+				...prev,
+				[move.from]: { ...prev[move.from], items: prev[move.from].items.filter((t) => t.id !== move.cardId) },
+				[move.to]: { ...prev[move.to], items: toItems },
+			};
+		});
+		setMove(null);
 	};
 
-	const handleAddTask = (taskData: any) => {
-		const newBoard = { ...columns };
-		newBoard[selectedColumn].items.push(taskData);
+	const addTask = async (taskData: TaskData) => {
+		if (!addCol) return;
+		const col = columns[addCol];
+
+		const res = await api(`/boards/${boardId}/columns/${col.id}/cards`, {
+			method: "POST",
+			body: JSON.stringify(taskData),
+		});
+		if (!res.ok) return;
+
+		const card = await res.json();
+		setColumns((prev) => ({
+			...prev,
+			[addCol]: { ...prev[addCol], items: [...prev[addCol].items, card] },
+		}));
 	};
+
+	if (loading) return <div className="w-full py-20 text-center text-gray-400 text-sm">Carregando board...</div>;
+	if (Object.keys(columns).length === 0) return <div className="w-full py-20 text-center text-gray-400 text-sm">Nenhum board encontrado.</div>;
 
 	return (
 		<>
-			<DragDropContext onDragEnd={(result: any) => onDragEnd(result, columns, setColumns)}>
-				<div className="w-full flex items-start justify-between px-5 pb-8 md:gap-0 gap-10">
-					{Object.entries(columns).map(([columnId, column]: any) => (
-						<div
-							className="w-full flex flex-col gap-0"
-							key={columnId}
-						>
-							<Droppable
-								droppableId={columnId}
-								key={columnId}
-							>
-								{(provided: any) => (
-									<div
-										ref={provided.innerRef}
-										{...provided.droppableProps}
-										className="flex flex-col md:w-[290px] w-[250px] gap-3 items-center py-5"
-									>
-										<div className="flex items-center justify-center py-[10px] w-full bg-white rounded-lg shadow-sm text-[#555] font-medium text-[15px]">
-											{column.name}
+			<div className="flex items-center justify-between px-5 mb-2">
+				{permission && (
+					<span className="text-xs font-semibold px-3 py-1 rounded-md" style={{ backgroundColor: "#fef3c7", color: "#92400e" }}>
+						{permission}
+					</span>
+				)}
+				<button
+					onClick={() => setHistoryOpen(true)}
+					style={{ backgroundColor: "#CC0000" }}
+					className="flex items-center gap-2 px-4 py-2 rounded-lg text-white text-sm font-semibold shadow-md hover:brightness-110"
+				>
+					<TimeOutline color="#fff" width="18px" height="18px" />
+					Atividade
+				</button>
+			</div>
+
+			<DragDropContext onDragEnd={onDragEnd}>
+				<div className="w-full flex items-start px-5 pb-8 gap-4 overflow-x-auto">
+					{Object.entries(columns).map(([colId, col]) => (
+						<div className="w-full flex flex-col" key={colId}>
+							<Droppable droppableId={colId}>
+								{(provided) => (
+									<div ref={provided.innerRef} {...provided.droppableProps} className="flex flex-col md:w-[290px] w-[250px] gap-3 items-center py-5">
+										<div className={`flex items-center justify-center gap-2 py-[10px] w-full rounded-lg shadow-sm font-medium text-[15px] ${
+											col.wip_limit && col.items.length >= col.wip_limit
+												? "bg-red-100 text-red-700 border border-red-300"
+												: "bg-white text-[#555]"
+										}`}>
+											{col.name}
+											{col.wip_limit && (
+												<span className={`text-xs ${col.items.length >= col.wip_limit ? "text-red-600 font-bold" : "text-gray-400"}`}>
+													{col.items.length}/{col.wip_limit}
+												</span>
+											)}
 										</div>
-										{column.items.map((task: any, index: any) => (
-											<Draggable
-												key={task.id.toString()}
-												draggableId={task.id.toString()}
-												index={index}
-											>
-												{(provided: any) => (
-													<>
-														<Task
-															provided={provided}
-															task={task}
-														/>
-													</>
-												)}
+
+										{col.items.map((task, i) => (
+											<Draggable key={task.id} draggableId={String(task.id)} index={i} isDragDisabled={viewer}>
+												{(provided) => <Task provided={provided} task={task} onClick={() => setDetailId(task.id)} />}
 											</Draggable>
 										))}
 										{provided.placeholder}
 									</div>
 								)}
 							</Droppable>
-							<div
-								onClick={() => openModal(columnId)}
-								className="flex cursor-pointer items-center justify-center gap-1 py-[10px] md:w-[90%] w-full opacity-90 bg-white rounded-lg shadow-sm text-[#555] font-medium text-[15px]"
-							>
-								<AddOutline color={"#555"} />
-								Add Task
-							</div>
+
+							{!viewer && (
+								<div onClick={() => setAddCol(colId)} className="flex cursor-pointer items-center justify-center gap-1 py-[10px] md:w-[90%] w-full opacity-90 bg-white rounded-lg shadow-sm text-[#555] font-medium text-[15px]">
+									<AddOutline color="#555" />
+									Add Task
+								</div>
+							)}
 						</div>
 					))}
 				</div>
 			</DragDropContext>
 
-			<AddModal
-				isOpen={modalOpen}
-				onClose={closeModal}
-				setOpen={setModalOpen}
-				handleAddTask={handleAddTask}
-			/>
+			<AddModal isOpen={addCol !== null} onClose={() => setAddCol(null)} onSubmit={addTask} />
+			<MoveModal isOpen={move !== null} onClose={() => setMove(null)} onConfirm={confirmMove} />
+			<CardDetailModal cardId={detailId} onClose={() => setDetailId(null)} />
+			<SideBarHistory boardId={boardId} isOpen={historyOpen} onClose={() => setHistoryOpen(false)} />
 		</>
 	);
 };

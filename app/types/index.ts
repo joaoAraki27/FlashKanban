@@ -9,15 +9,16 @@ export type Task = {
   title: string;
   description: string;
   priority: string;
-  deadline: string;
-  image?: string;
-  alt?: string;
+  due_date?: string;
   tags?: Tag[];
+  assignee_id?: string;
 };
 
 export type Column = {
+  id: number;
   name: string;
   items: Task[];
+  wip_limit?: number | null;
 };
 
 export type Columns = {
