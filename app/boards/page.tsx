@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from '../components/Navbar';
 import Sidebar from '../components/SideBar';
-import { api } from '../lib/api';
+import { api, initTokenRefresh } from '../lib/api';
 
 interface Board {
   id: string;
@@ -25,6 +25,7 @@ export default function BoardsListPage() {
       router.push('/login');
       return;
     }
+    initTokenRefresh();
 
     api('/boards')
       .then((res) => res.json())

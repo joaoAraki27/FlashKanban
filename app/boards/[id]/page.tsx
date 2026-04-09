@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { initTokenRefresh } from '../../lib/api';
 import Navbar from '../../components/Navbar';
 import Sidebar from '../../components/SideBar';
 import Boards from '../boards';
@@ -14,6 +15,7 @@ export default function BoardPage() {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) router.push('/login');
+    else initTokenRefresh();
   }, []);
 
   return (

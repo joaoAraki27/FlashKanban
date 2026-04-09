@@ -3,6 +3,16 @@ export const API_BASE = "https://joaocunha.flashnetbrasil.com.br/api/v1";
 export const getToken = () => localStorage.getItem("token") || "";
 
 let refreshing: Promise<string | null> | null = null;
+let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+export function scheduleRefresh(expiresIn: number) {
+  if (refreshTimer) clearTimeout(refreshTimer);
+  const refreshAt = (expiresIn - 120) * 1000;
+  if (refreshAt <= 0) return;
+  refreshTimer = setTimeout(() => {
+    tryRefresh();
+  }, refreshAt);
+}
 
 async function tryRefresh(): Promise<string | null> {
   const rt = localStorage.getItem("refresh_token");
@@ -18,7 +28,13 @@ async function tryRefresh(): Promise<string | null> {
 
   const data = await res.json();
   localStorage.setItem("token", data.access_token);
+  if (data.expires_in) scheduleRefresh(data.expires_in);
   return data.access_token;
+}
+
+export function initTokenRefresh() {
+  const token = localStorage.getItem("token");
+  if (token) scheduleRefresh(3600);
 }
 
 export async function api(path: string, opts: RequestInit = {}): Promise<Response> {

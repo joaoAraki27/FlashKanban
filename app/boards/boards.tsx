@@ -18,9 +18,10 @@ const Home = ({ boardId }: { boardId: string }) => {
 	const [permission, setPermission] = useState("");
 	const [loading, setLoading] = useState(true);
 	const [addCol, setAddCol] = useState<string | null>(null);
-	const [move, setMove] = useState<{ cardId: number; from: string; to: string; pos: number } | null>(null);
-	const [detailId, setDetailId] = useState<number | null>(null);
+	const [move, setMove] = useState<{ cardId: string; from: string; to: string; pos: number } | null>(null);
+	const [detailId, setDetailId] = useState<string | null>(null);
 	const [historyOpen, setHistoryOpen] = useState(false);
+	const [members, setMembers] = useState<{ id: string; username: string }[]>([]);
 
 	const viewer = permission === "viewer";
 
@@ -37,6 +38,12 @@ const Home = ({ boardId }: { boardId: string }) => {
 				setColumns(cols);
 			})
 			.finally(() => setLoading(false));
+
+		api(`/boards/${boardId}/members`)
+			.then((r) => r.json())
+			.then((d) => {
+				if (d?.items) setMembers(d.items.map((m: any) => ({ id: m.user.id, username: m.user.username })));
+			});
 	}, [boardId]);
 
 	const onDragEnd = (result: any) => {
@@ -44,8 +51,14 @@ const Home = ({ boardId }: { boardId: string }) => {
 		const { source, destination, draggableId } = result;
 		if (source.droppableId === destination.droppableId) return;
 
+		const destCol = columns[destination.droppableId];
+		if (destCol.wip_limit && destCol.items.length >= destCol.wip_limit) {
+			toast(`Coluna "${destCol.name}" já atingiu o limite de cards (${destCol.items.length}/${destCol.wip_limit})`);
+			return;
+		}
+
 		setMove({
-			cardId: Number(draggableId),
+			cardId: draggableId,
 			from: source.droppableId,
 			to: destination.droppableId,
 			pos: destination.index,
@@ -77,6 +90,7 @@ const Home = ({ boardId }: { boardId: string }) => {
 				[move.to]: { ...prev[move.to], items: toItems },
 			};
 		});
+		toast("Card movido com sucesso", "success");
 		setMove(null);
 	};
 
@@ -84,17 +98,29 @@ const Home = ({ boardId }: { boardId: string }) => {
 		if (!addCol) return;
 		const col = columns[addCol];
 
+		const payload: Record<string, unknown> = { title: taskData.title };
+		if (taskData.description) payload.description = taskData.description;
+		if (taskData.priority) payload.priority = taskData.priority;
+		if (taskData.due_date) payload.due_date = taskData.due_date;
+		if (taskData.tags.length > 0) payload.tags = taskData.tags;
+		if (taskData.assignee_id) payload.assignee_id = taskData.assignee_id;
+
 		const res = await api(`/boards/${boardId}/columns/${col.id}/cards`, {
 			method: "POST",
-			body: JSON.stringify(taskData),
+			body: JSON.stringify(payload),
 		});
-		if (!res.ok) return;
+		if (!res.ok) {
+			const e = await res.json().catch(() => null);
+			toast(e?.error?.message || "Erro ao criar card");
+			return;
+		}
 
 		const card = await res.json();
 		setColumns((prev) => ({
 			...prev,
 			[addCol]: { ...prev[addCol], items: [...prev[addCol].items, card] },
 		}));
+		toast("Card criado com sucesso", "success");
 	};
 
 	if (loading) return <div className="w-full py-20 text-center text-gray-400 text-sm">Carregando board...</div>;
@@ -159,9 +185,35 @@ const Home = ({ boardId }: { boardId: string }) => {
 				</div>
 			</DragDropContext>
 
-			<AddModal isOpen={addCol !== null} onClose={() => setAddCol(null)} onSubmit={addTask} />
+			<AddModal isOpen={addCol !== null} onClose={() => setAddCol(null)} onSubmit={addTask} members={members} />
 			<MoveModal isOpen={move !== null} onClose={() => setMove(null)} onConfirm={confirmMove} />
-			<CardDetailModal cardId={detailId} onClose={() => setDetailId(null)} />
+			<CardDetailModal
+				cardId={detailId}
+				onClose={() => setDetailId(null)}
+				members={members}
+				isViewer={viewer}
+				onArchive={viewer ? undefined : (id) => {
+					setColumns((prev) => {
+						const next = { ...prev };
+						for (const colId in next) {
+							next[colId] = { ...next[colId], items: next[colId].items.filter((t) => t.id !== id) };
+						}
+						return next;
+					});
+				}}
+				onUpdate={(updated) => {
+					setColumns((prev) => {
+						const next = { ...prev };
+						for (const colId in next) {
+							next[colId] = {
+								...next[colId],
+								items: next[colId].items.map((t) => t.id === updated.id ? { ...t, ...updated } : t),
+							};
+						}
+						return next;
+					});
+				}}
+			/>
 			<SideBarHistory boardId={boardId} isOpen={historyOpen} onClose={() => setHistoryOpen(false)} />
 		</>
 	);

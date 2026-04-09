@@ -5,6 +5,18 @@ import { useEffect, useState } from 'react';
 import { CloseOutline, TimeOutline } from 'react-ionicons';
 import { api } from '../../lib/api';
 
+const actionLabels: Record<string, string> = {
+	created: "Criado",
+	moved: "Movido",
+	edited: "Editado",
+	commented: "Comentário",
+	assigned: "Responsável atribuído",
+	unassigned: "Responsável removido",
+	archived: "Excluído",
+	priority_changed: "Prioridade alterada",
+	due_date_changed: "Data limite alterada",
+};
+
 const SideBarHistory = ({ boardId, isOpen, onClose }: { boardId: string; isOpen: boolean; onClose: () => void }) => {
 	const [items, setItems] = useState<any[]>([]);
 	const [loading, setLoading] = useState(false);
@@ -48,7 +60,7 @@ const SideBarHistory = ({ boardId, isOpen, onClose }: { boardId: string; isOpen:
 					{items.map((item) => (
 						<div key={item.id} className="border-l-2 pl-3 py-2 bg-slate-50 rounded-r-md" style={{ borderColor: '#CC0000' }}>
 							<div className="flex items-center justify-between mb-1">
-								<span className="text-xs font-bold text-gray-800 uppercase">{item.action}</span>
+								<span className="text-xs font-bold text-gray-800 uppercase">{actionLabels[item.action] || item.action}</span>
 								<span className="text-[11px] text-gray-400">
 									{new Date(item.created_at).toLocaleString("pt-BR")}
 								</span>

@@ -10,10 +10,11 @@ export interface TaskData {
 	assignee_id: string;
 }
 
-const AddModal = ({ isOpen, onClose, onSubmit }: {
+const AddModal = ({ isOpen, onClose, onSubmit, members }: {
 	isOpen: boolean;
 	onClose: () => void;
 	onSubmit: (data: TaskData) => void;
+	members: { id: string; username: string }[];
 }) => {
 	const [data, setData] = useState<TaskData>({
 		title: "", description: "", priority: "", due_date: "", tags: [], assignee_id: "",
@@ -100,13 +101,17 @@ const AddModal = ({ isOpen, onClose, onSubmit }: {
 					</div>
 
 					<div className="flex flex-col gap-1">
-						<label className="text-xs font-semibold text-gray-800 uppercase tracking-wide">Responsável (username)</label>
-						<input
+						<label className="text-xs font-semibold text-gray-800 uppercase tracking-wide">Responsável</label>
+						<select
 							value={data.assignee_id}
 							onChange={(e) => setData({ ...data, assignee_id: e.target.value })}
-							placeholder="Ex: alice"
-							className="w-full h-10 px-3 outline-none rounded-lg bg-slate-50 border border-slate-200 text-sm text-black focus:border-red-600"
-						/>
+							className="w-full h-10 px-2 outline-none rounded-lg bg-slate-50 border border-slate-200 text-sm text-black focus:border-red-600"
+						>
+							<option value="">Nenhum</option>
+							{members.map((m) => (
+								<option key={m.id} value={m.id}>{m.username}</option>
+							))}
+						</select>
 					</div>
 
 					<div className="flex flex-col gap-1">

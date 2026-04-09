@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { API_BASE } from '../lib/api';
+import { API_BASE, scheduleRefresh } from '../lib/api';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
@@ -30,6 +30,7 @@ export default function LoginPage() {
       localStorage.setItem('refresh_token', data.refresh_token);
       localStorage.setItem('username', data.user.username);
       localStorage.setItem('role', data.user.role || '');
+      scheduleRefresh(data.expires_in || 3600);
 
       router.push('/boards');
     } catch (err) {

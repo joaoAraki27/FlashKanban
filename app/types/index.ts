@@ -5,7 +5,7 @@ export type Tag = {
 };
 
 export type Task = {
-  id: number;
+  id: string;
   title: string;
   description: string;
   priority: string;
@@ -15,7 +15,7 @@ export type Task = {
 };
 
 export type Column = {
-  id: number;
+  id: string;
   name: string;
   items: Task[];
   wip_limit?: number | null;
